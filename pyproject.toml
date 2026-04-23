@@ -7,15 +7,16 @@ dependencies = [
     "beyer-labs-h2pcontrol-grpc-python>=1.80.0.1.20260406165239",
     "beyer-labs-h2pcontrol-protocolbuffers-pyi>=34.1.0.1.20260406165239",
     "beyer-labs-h2pcontrol-protocolbuffers-python>=34.1.0.1.20260406165239",
-    "beyer-labs-h2pcontrol-community-nipunn1313-mypy-grpc>=4.0.0.1.20260407223931",
     "protobuf>=7.34.1",
     "pydantic-settings>=2.11.0",
+    "pydantic>=2.13.1",
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.9.0",
     "pyright>=1.1.0",
+    "beyer-labs-h2pcontrol-community-nipunn1313-mypy-grpc>=5.0.0",
 ]
 
 [tool.ruff]
@@ -23,6 +24,9 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.uv]
+override-dependencies = ["protobuf>=7.34.1"]
 
 [[tool.uv.index]]
 url = "https://buf.build/gen/python"
