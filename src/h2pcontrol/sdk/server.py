@@ -50,24 +50,31 @@ class Server(ABC):
         raise RuntimeError(f"No gRPC servicer found in MRO of {type(self).__name__}")
 
     async def _register_and_heartbeat(self):
-        async with grpc.aio.insecure_channel(self._config.manager.address) as channel:
-            stub = cast("ManagerServiceAsyncStub", ManagerServiceStub(channel))
+        try:
+            async with grpc.aio.insecure_channel(self._config.manager.address) as channel:
+                stub = cast("ManagerServiceAsyncStub", ManagerServiceStub(channel))
 
-            await stub.Register(
-                RegisterRequest(
-                    service=ServiceDefinition(
-                        name=self._config.service.name,
-                        description=self._config.service.description,
-                        port=self._config.service.port,
+                await stub.Register(
+                    RegisterRequest(
+                        service=ServiceDefinition(
+                            name=self._config.service.name,
+                            description=self._config.service.description,
+                            port=self._config.service.port,
+                        )
                     )
                 )
+                logger.info("Registered with manager at %s", self._config.manager.address)
+
+                async def heartbeat_requests():
+                    while True:
+                        yield HeartbeatRequest(healthy=True)
+                        await asyncio.sleep(self._config.manager.heartbeat_interval_s)
+
+                async for _ in stub.Heartbeat(heartbeat_requests()):
+                    logger.debug("Heartbeat acknowledged")
+        except grpc.aio.AioRpcError as e:
+            logger.warning(
+                "Manager unreachable, running without registration: %s",
+                self._config.manager.address,
+                extra={"grpc_status": e.code().name, "grpc_details": e.details()},
             )
-            logger.info(f"Registered with manager at {self._config.manager.address}")
-
-            async def heartbeat_requests():
-                while True:
-                    yield HeartbeatRequest(healthy=True)
-                    await asyncio.sleep(self._config.manager.heartbeat_interval_s)
-
-            async for _ in stub.Heartbeat(heartbeat_requests()):
-                logger.debug("Heartbeat acknowledged")
