@@ -1,7 +1,8 @@
 import asyncio
 import inspect
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, cast
 
 import grpc
@@ -27,10 +28,14 @@ class Server(ABC):
 
     async def start(self):
         """Starts the service and registers with the manager."""
-        await asyncio.gather(
-            self._run(),
-            self._register_and_heartbeat(),
-        )
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(self._run())
+            tg.create_task(self._register_and_heartbeat())
+
+    @abstractmethod
+    def healthy(self) -> bool:
+        """Returns whether the service is currently healthy."""
+        ...
 
     async def _run(self):
         server = grpc.aio.server()
@@ -49,32 +54,36 @@ class Server(ABC):
                     return
         raise RuntimeError(f"No gRPC servicer found in MRO of {type(self).__name__}")
 
+    async def _heartbeat_requests(self) -> AsyncIterator[HeartbeatRequest]:
+        while True:
+            yield HeartbeatRequest(healthy=True)
+            await asyncio.sleep(self._config.manager.heartbeat_interval_s)
+
     async def _register_and_heartbeat(self):
-        try:
-            async with grpc.aio.insecure_channel(self._config.manager.address) as channel:
-                stub = cast("ManagerServiceAsyncStub", ManagerServiceStub(channel))
+        while True:
+            try:
+                async with grpc.aio.insecure_channel(self._config.manager.address) as channel:
+                    stub = cast("ManagerServiceAsyncStub", ManagerServiceStub(channel))
 
-                await stub.Register(
-                    RegisterRequest(
-                        service=ServiceDefinition(
-                            name=self._config.service.name,
-                            description=self._config.service.description,
-                            port=self._config.service.port,
-                        )
+                    await stub.Register(
+                        RegisterRequest(
+                            service=ServiceDefinition(
+                                name=self._config.service.name,
+                                description=self._config.service.description,
+                                port=self._config.service.port,
+                            )
+                        ),
+                        timeout=10,
                     )
+                    logger.info("Registered with manager at %s", self._config.manager.address)
+
+                    async for _ in stub.Heartbeat(self._heartbeat_requests()):
+                        logger.debug("Heartbeat acknowledged")
+
+            except grpc.aio.AioRpcError as e:
+                retry_interval = self._config.manager.heartbeat_interval_s
+
+                logger.warning(
+                    "Manager unreachable, retrying in %ds: %s", retry_interval, e.details()
                 )
-                logger.info("Registered with manager at %s", self._config.manager.address)
-
-                async def heartbeat_requests():
-                    while True:
-                        yield HeartbeatRequest(healthy=True)
-                        await asyncio.sleep(self._config.manager.heartbeat_interval_s)
-
-                async for _ in stub.Heartbeat(heartbeat_requests()):
-                    logger.debug("Heartbeat acknowledged")
-        except grpc.aio.AioRpcError as e:
-            logger.warning(
-                "Manager unreachable, running without registration: %s",
-                self._config.manager.address,
-                extra={"grpc_status": e.code().name, "grpc_details": e.details()},
-            )
+                await asyncio.sleep(retry_interval)

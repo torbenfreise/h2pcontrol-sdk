@@ -10,7 +10,8 @@ from pydantic_settings import (
 
 
 def _config_toml() -> str | None:
-    for parent in Path(__file__).parents:
+    search = [Path.cwd(), *Path.cwd().parents]
+    for parent in search:
         if (parent / "pyproject.toml").exists():
             return str(parent / "config.toml")
     return None
@@ -46,3 +47,7 @@ class Config(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return env_settings, TomlConfigSettingsSource(settings_cls)
+
+    @classmethod
+    def load(cls) -> "Config":
+        return cls.model_validate({})

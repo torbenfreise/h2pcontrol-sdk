@@ -1,66 +1,98 @@
-# h2pcontrol Server Template
+# h2pcontrol SDK
 
-This project serves as a template for implementing h2pcontrol servers.
+This kit provides tools to develop h2pcontrol clients and servers. 
 
-## Requirements
 
-- Python 3.14+
+## Installation
+```bash
+uv add "h2pcontrol-sdk @ git+https://github.com/torbenfreise/h2pcontrol-sdk@0.1.0"  
+```
+
+## Usage
+The SDK consists of two main components: the Client and Server implementations.
+### h2pcontrol Server
+The h2pcontrol server is an abc ([abstract base class](https://docs.python.org/3/library/abc.html))
+that implements the shared functionality of all h2pcontrol services. It handles: 
+ - Instantiating the gRPC server
+ - Registering with and reporting health to the h2pcontrol manager
+
+#### Configuration
+The server can be configured with a `config.toml` file or environment variables.
+An example configuration could be:
+```toml
+[manager]
+address = "127.0.0.1:50051" # The address of the h2pcontrol manager
+heartbeat_interval_s = 5 # how often to ping the manager. also used within the retry mechanism 
+                         # if the manager is unavailable
+[service]
+name = "greeter" # A unique name for this service
+description = "Greeter service" # a short description of the service and its purpose
+host = "0.0.0.0" # the address the gRPC server binds to
+port = 50055 # the port the gRPC server binds to
+```
+The corresponding environment variables are defined as `<section>__<key>` and should be in all caps.
+For example, defining `MANAGER__ADDRESS` overrides the manager address.
+
+
+#### Implementation
+Service implementations should inherit from `H2PServer` along with the respective Servicer, and implement the `healthy` abstract method,
+along with the methods inherited from the grpc service stub.
+```python
+from h2pcontrol.sdk import H2PServer
+from h2pcontrol.example.v1.example_pb2_grpc  import MyServiceServicer
+
+class MyService(H2PServer, MyServiceServicer):
+    def healthy(self) -> bool:
+        return True
+
+    # implement gRPC service methods here
+
+
+```
+The `H2PServer` class defines `start`, which attempts to start the server and connect to the manager in parallel.
+If the manager is unavailable, a warning log will be emitted and connection will be retried every `heartbeat_interval_s`.
+
+
+For a complete service implementation using this sdk, see the [h2pcontrol server template.](https://github.com/torbenfreise/h2pcontrol-server-template)
+
+
+### Client
+`H2PClient` connects to the h2pcontrol manager and resolves named services to ready-to-use gRPC stubs.
+Use it to connect to and manage h2pcontrol services:
+
+```python
+from h2pcontrol.sdk import H2PClient, DeviceNotFoundError
+from h2pcontrol.example.v1.example_pb2_grpc import ExampleServiceStub
+
+async with H2PClient("127.0.0.1:50051") as client:
+    stub = await client.service("example", ExampleServiceStub)
+    response = await stub.SayHello(...)
+```
+
+`service()` raises `ServiceNotFoundError` if the requested service is not registered with the manager.
+
+
+## Development / Contributing
+### Requirements
+
+- Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 
-## Setup
+### Setup
 
 ```bash
 uv sync
 ```
 
-## Configuration
-
-The server configuration is stored in [config.toml](config.toml)
-
-```toml
-[manager]
-address = "127.0.0.1:50051"
-heartbeat_interval_s = 5
-
-[service]
-name = "greeter"
-description = "Greeter service"
-host = "0.0.0.0"
-port = 50055
-```
-
-These config values can be overridden using environment variables. For example, the manager address
-could be overridden with a MANAGER__ADDRESS ENV var.
-
-## Running
-
-Use the following command to start the service:
-
-```bash
-uv run src/main.py
-```
-
-On start up, the service attempts to register with the h2pcontrol manager at the configured address.
-If this fails (for example because the manager is not running),
-a `WARN` log will be emitted.
-
-## Usage
-
-This example server implements a single "SayHello" endpoint.
-It returns the provided text with "Hello," prepended.
-If you have buf installed you can test the service by running the `buf curl`:
-
-```shell
-  buf curl --protocol grpc \
-  --http2-prior-knowledge \
-  --schema buf.build/beyer-labs/h2pcontrol \
-  -d '{"name": "World"}' \
-  "http://localhost:50055/h2pcontrol.example.v1.ExampleService/SayHello"  
-```
-
-## Format and linting
+### Format and linting
 
 This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
+
+Format code:
+
+```bash
+uv run ruff format src/
+```
 
 Check for lint issues:
 
@@ -74,11 +106,6 @@ Check for type issues:
  uv run pyright src/          
 ```
 
-Format code:
-
-```bash
-uv run ruff format src/
-```
 
 These checks also run automatically on every pull request and pushes to main via
 the [GitHub Actions workflow](.github/workflows/lint.yml)
