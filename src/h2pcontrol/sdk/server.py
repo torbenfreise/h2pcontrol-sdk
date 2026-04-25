@@ -33,7 +33,7 @@ class Server(ABC):
             tg.create_task(self._register_and_heartbeat())
 
     @abstractmethod
-    def healthy(self) -> bool:
+    def _healthy(self) -> bool:
         """Returns whether the service is currently healthy."""
         ...
 
@@ -56,7 +56,7 @@ class Server(ABC):
 
     async def _heartbeat_requests(self) -> AsyncIterator[HeartbeatRequest]:
         while True:
-            yield HeartbeatRequest(healthy=True)
+            yield HeartbeatRequest(healthy=self._healthy())
             await asyncio.sleep(self._config.manager.heartbeat_interval_s)
 
     async def _register_and_heartbeat(self):
