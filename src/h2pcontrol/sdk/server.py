@@ -40,7 +40,7 @@ class Server(ABC):
     async def _run(self):
         server = grpc.aio.server()
         self._add_to_server(server)
-        server.add_insecure_port(f"[::]:{self._config.service.port}")
+        server.add_insecure_port(f"[::]:{self._config.service.address.rsplit(':', 1)[1]}")
         await server.start()
         await server.wait_for_termination()
 
@@ -70,7 +70,7 @@ class Server(ABC):
                             service=ServiceDefinition(
                                 name=self._config.service.name,
                                 description=self._config.service.description,
-                                port=self._config.service.port,
+                                address=self._config.service.address,
                             )
                         ),
                         timeout=10,
