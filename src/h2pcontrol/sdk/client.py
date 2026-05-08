@@ -3,9 +3,10 @@ from typing import TYPE_CHECKING, Callable, TypeVar, cast
 
 import grpc
 from h2pcontrol.manager.v1.manager_pb2 import ListRequest
+from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceStub
 
 if TYPE_CHECKING:
-    from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceAsyncStub, ManagerServiceStub
+    from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceAsyncStub
 TStub = TypeVar("TStub")
 
 logger = logging.getLogger(__name__)
