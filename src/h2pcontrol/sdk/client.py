@@ -40,8 +40,7 @@ class Client:
         try:
             response = await self._manager_stub.List(ListRequest())
             self._server_registry = {
-                service.definition.name: f"{service.host}:{service.definition.port}"
-                for service in response.services
+                service.definition.name: service.definition.address for service in response.services
             }
         except grpc.aio.AioRpcError as e:
             await self._manager_channel.close()

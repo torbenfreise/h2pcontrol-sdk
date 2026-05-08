@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -17,16 +17,35 @@ def _config_toml() -> str | None:
     return None
 
 
+def _check_address(v: str) -> str:
+    parts = v.rsplit(":", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1].isdigit():
+        raise ValueError("address must be in host:port format")
+    port = int(parts[1])
+    if not (1 <= port <= 65535):
+        raise ValueError("port must be between 1 and 65535")
+    return v
+
+
 class ManagerConfig(BaseModel):
     address: str
     heartbeat_interval_s: int
+
+    @field_validator("address")
+    @classmethod
+    def validate_address(cls, v: str) -> str:
+        return _check_address(v)
 
 
 class ServiceConfig(BaseModel):
     name: str
     description: str
-    host: str
-    port: int
+    address: str
+
+    @field_validator("address")
+    @classmethod
+    def validate_address(cls, v: str) -> str:
+        return _check_address(v)
 
 
 class Config(BaseSettings):

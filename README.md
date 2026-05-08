@@ -27,8 +27,7 @@ heartbeat_interval_s = 5 # how often to ping the manager. also used within the r
 [service]
 name = "greeter" # A unique name for this service
 description = "Greeter service" # a short description of the service and its purpose
-host = "0.0.0.0" # the address the gRPC server binds to
-port = 50055 # the port the gRPC server binds to
+address = "0.0.0.0:50055" # the address this service listens on and reports to the manager
 ```
 The corresponding environment variables are defined as `<section>__<key>` and should be in all caps.
 For example, defining `MANAGER__ADDRESS` overrides the manager address.
