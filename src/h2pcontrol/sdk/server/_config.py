@@ -48,7 +48,7 @@ class ServiceConfig(BaseModel):
         return _check_address(v)
 
 
-class Config(BaseSettings):
+class ServerConfig(BaseSettings):
     model_config = SettingsConfigDict(
         toml_file=_config_toml(),
         env_nested_delimiter="__",
@@ -68,5 +68,5 @@ class Config(BaseSettings):
         return env_settings, TomlConfigSettingsSource(settings_cls)
 
     @classmethod
-    def load(cls) -> "Config":
+    def load(cls) -> "ServerConfig":
         return cls.model_validate({})
