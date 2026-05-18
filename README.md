@@ -34,13 +34,13 @@ For example, defining `MANAGER__ADDRESS` overrides the manager address.
 
 
 #### Implementation
-Service implementations should inherit from `H2PServer` along with the respective Servicer, and implement the `healthy` abstract method,
+Service implementations should inherit from `Server` along with the respective Servicer, and implement the `healthy` abstract method,
 along with the methods inherited from the grpc service stub.
 ```python
-from h2pcontrol.sdk import H2PServer
+from h2pcontrol.sdk.server import Server
 from h2pcontrol.example.v1.example_pb2_grpc  import MyServiceServicer
 
-class MyService(H2PServer, MyServiceServicer):
+class MyService(Server, MyServiceServicer):
     def healthy(self) -> bool:
         return True
 
@@ -56,14 +56,14 @@ For a complete service implementation using this sdk, see the [h2pcontrol server
 
 
 ### Client
-`H2PClient` connects to the h2pcontrol manager and resolves named services to ready-to-use gRPC stubs.
+`Client` connects to the h2pcontrol manager and resolves named services to ready-to-use gRPC stubs.
 Use it to connect to and manage h2pcontrol services:
 
 ```python
-from h2pcontrol.sdk import H2PClient, DeviceNotFoundError
+from h2pcontrol.sdk.client import Client, ServiceNotFoundError
 from h2pcontrol.example.v1.example_pb2_grpc import ExampleServiceStub
 
-async with H2PClient("127.0.0.1:50051") as client:
+async with Client("127.0.0.1:50051") as client:
     stub = await client.service("example", ExampleServiceStub)
     response = await stub.SayHello(...)
 ```
