@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 class Server(ABC):
     def __init__(self, config: ServerConfig):
         self._config = config
+        self._heartbeat_queue: asyncio.Queue[None] = asyncio.Queue()
 
     async def start(self):
         """Starts the service and registers with the manager."""
@@ -56,8 +57,8 @@ class Server(ABC):
 
     async def _heartbeat_requests(self) -> AsyncIterator[HeartbeatRequest]:
         while True:
+            await self._heartbeat_queue.get()
             yield HeartbeatRequest(healthy=self._healthy())
-            await asyncio.sleep(self._config.manager.heartbeat_interval_s)
 
     async def _register_and_heartbeat(self):
         while True:
@@ -77,8 +78,12 @@ class Server(ABC):
                     )
                     logger.info("Registered with manager at %s", self._config.manager.address)
 
-                    async for _ in stub.Heartbeat(self._heartbeat_requests()):
-                        logger.debug("Heartbeat acknowledged")
+                    self._heartbeat_queue = asyncio.Queue()
+                    responses = stub.Heartbeat(self._heartbeat_requests())
+
+                    async for _ in responses:
+                        logger.debug("Heartbeat ping received")
+                        self._heartbeat_queue.put_nowait(None)
 
             except grpc.aio.AioRpcError as e:
                 retry_interval = self._config.manager.heartbeat_interval_s
