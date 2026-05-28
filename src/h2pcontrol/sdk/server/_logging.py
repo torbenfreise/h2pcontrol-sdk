@@ -45,9 +45,6 @@ class GrpcLogHandler(logging.Handler):
         """Stream logs to the manager. Blocks until the stream ends or is cancelled."""
         try:
             await stub.Log(self._generate())
-        except grpc.RpcError as e:
-            self._closed = True  # need to set before logging
-            logger.warning("Log stream ended with error: %s", e)
         finally:
             self._closed = True
 
