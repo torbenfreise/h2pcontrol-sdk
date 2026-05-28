@@ -86,7 +86,7 @@ class Server(ABC):
                         self._heartbeat_queue.put_nowait(None)
 
             except grpc.aio.AioRpcError as e:
-                retry_interval = self._config.manager.heartbeat_interval_s
+                retry_interval = self._config.manager.retry_interval_s
 
                 logger.warning(
                     "Manager unreachable, retrying in %ds: %s", retry_interval, e.details()
