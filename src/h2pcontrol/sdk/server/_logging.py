@@ -4,9 +4,10 @@ import queue
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 from h2pcontrol.manager.v1.manager_pb2 import (
+    Attr,
+    AttrValue,
     Level,
     LogRequest,
 )
@@ -17,6 +18,54 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _MAX_QUEUE_SIZE = 4096
+
+# skip built-in LogRecord attributes
+# http://docs.python.org/library/logging.html#logrecord-attributes
+_RESERVED_ATTRS = frozenset(
+    (
+        "asctime",
+        "args",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "message",
+        "module",
+        "msecs",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+        "taskName",
+    )
+)
+
+
+def _to_attr_value(v: object) -> AttrValue:
+    if isinstance(v, bool):
+        return AttrValue(bool_value=v)
+    if isinstance(v, int):
+        return AttrValue(int_value=v)
+    if isinstance(v, float):
+        return AttrValue(double_value=v)
+    return AttrValue(string_value=str(v))
+
+
+def _get_extras(record: logging.LogRecord) -> list[Attr]:
+    return [
+        Attr(key=k, value=_to_attr_value(v))
+        for k, v in record.__dict__.items()
+        if k not in _RESERVED_ATTRS
+    ]
 
 
 class GrpcLogHandler(logging.Handler):
@@ -42,7 +91,6 @@ class GrpcLogHandler(logging.Handler):
             yield record
 
     async def run(self, stub: "ManagerServiceAsyncStub") -> None:
-        """Stream logs to the manager. Blocks until the stream ends or is cancelled."""
         try:
             await stub.Log(self._generate())
         finally:
@@ -61,13 +109,13 @@ class GrpcLogHandler(logging.Handler):
                     level=proto_level,
                     message=self.format(record),
                     timestamp=ts,
+                    attrs=_get_extras(record),
                 )
             )
         except queue.Full:
-            pass  # drop the log rather than block or leak memory
+            pass
 
     def close(self):
-        """Shut down the handler and stop the generator."""
         self._closed = True
         try:
             self._queue.put_nowait(None)

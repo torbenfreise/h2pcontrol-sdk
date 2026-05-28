@@ -102,12 +102,11 @@ class Server(ABC):
                         tg.create_task(self._stream_heartbeats(stub))
 
             except* grpc.aio.AioRpcError as eg:
-                e = cast(AioRpcError, eg.exceptions[0])
-                retry_interval = self._config.manager.retry_interval_s
-
-                logger.warning(
-                    "Manager unreachable, retrying in %ds: %s",
-                    retry_interval,
-                    e.details(),
-                )
-                await asyncio.sleep(retry_interval)
+                for e in eg.exceptions:
+                    e = cast(AioRpcError, e)
+                    logger.warning(
+                        "Manager unreachable, retrying in %ds: %s",
+                        self._config.manager.retry_interval_s,
+                        e.details(),
+                    )
+                await asyncio.sleep(self._config.manager.retry_interval_s)
