@@ -29,7 +29,7 @@ def _check_address(v: str) -> str:
 
 class ManagerConfig(BaseModel):
     address: str
-    heartbeat_interval_s: int
+    retry_interval_s: int
 
     @field_validator("address")
     @classmethod
