@@ -1,12 +1,12 @@
 [project]
 name = "h2pcontrol-sdk"
-version = "0.1.0"
+version = "0.2.1"
 requires-python = ">=3.12"
 dependencies = [
     "grpcio>=1.80.0",
-    "beyer-labs-h2pcontrol-grpc-python>=1.80.0.1.20260406165239",
-    "beyer-labs-h2pcontrol-protocolbuffers-pyi>=34.1.0.1.20260406165239",
-    "beyer-labs-h2pcontrol-protocolbuffers-python>=34.1.0.1.20260406165239",
+    "beyer-labs-h2pcontrol-grpc-python>=1.80.dev0,<2",
+    "beyer-labs-h2pcontrol-protocolbuffers-pyi>=34.dev0,<36",
+    "beyer-labs-h2pcontrol-protocolbuffers-python>=34.dev0,<36",
     "protobuf>=7.34.1",
     "pydantic-settings>=2.11.0",
     "pydantic>=2.13.1",
