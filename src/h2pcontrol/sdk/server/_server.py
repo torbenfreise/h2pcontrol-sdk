@@ -6,16 +6,11 @@ from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, cast
 
 import grpc
-from h2pcontrol.manager.v1.manager_pb2 import (
-    HeartbeatRequest,
-    RegisterRequest,
-    ServiceDefinition,
-)
+from h2pcontrol.manager.v1.manager_pb2 import HeartbeatRequest, RegisterRequest, ServiceDefinition
+from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceStub
 
 if TYPE_CHECKING:
     from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceAsyncStub
-
-from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceStub
 
 from h2pcontrol.sdk.server._config import ServerConfig
 
