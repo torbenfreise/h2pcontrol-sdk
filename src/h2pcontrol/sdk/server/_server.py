@@ -6,11 +6,14 @@ from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, cast
 
 import grpc
+from grpc.aio import AioRpcError
 from h2pcontrol.manager.v1.manager_pb2 import (
     HeartbeatRequest,
     RegisterRequest,
     ServiceDefinition,
 )
+
+from h2pcontrol.sdk.server._logging import GrpcLogHandler
 
 if TYPE_CHECKING:
     from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceAsyncStub
@@ -31,7 +34,7 @@ class Server(ABC):
         """Starts the service and registers with the manager."""
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self._run())
-            tg.create_task(self._register_and_heartbeat())
+            tg.create_task(self._connect_to_manager())
 
     @abstractmethod
     def _healthy(self) -> bool:
@@ -60,35 +63,50 @@ class Server(ABC):
             await self._heartbeat_queue.get()
             yield HeartbeatRequest(healthy=self._healthy())
 
-    async def _register_and_heartbeat(self):
+    async def _stream_heartbeats(self, stub: "ManagerServiceAsyncStub") -> None:
+        self._heartbeat_queue = asyncio.Queue()
+        async for _ in stub.Heartbeat(self._heartbeat_requests()):
+            logger.debug("Heartbeat ping received")
+            self._heartbeat_queue.put_nowait(None)
+
+    async def _stream_logs(self, stub: "ManagerServiceAsyncStub") -> None:
+        handler = GrpcLogHandler(self._config.service.name)
+        logging.getLogger().addHandler(handler)
+        try:
+            await handler.run(stub)
+        finally:
+            logging.getLogger().removeHandler(handler)
+            handler.close()
+
+    async def _register(self, stub: "ManagerServiceAsyncStub") -> None:
+        await stub.Register(
+            RegisterRequest(
+                service=ServiceDefinition(
+                    name=self._config.service.name,
+                    description=self._config.service.description,
+                    address=self._config.service.address,
+                )
+            ),
+            timeout=10,
+        )
+        logger.info("Registered with manager at %s", self._config.manager.address)
+
+    async def _connect_to_manager(self):
         while True:
             try:
                 async with grpc.aio.insecure_channel(self._config.manager.address) as channel:
                     stub = cast("ManagerServiceAsyncStub", ManagerServiceStub(channel))
+                    await self._register(stub)
+                    async with asyncio.TaskGroup() as tg:
+                        tg.create_task(self._stream_logs(stub))
+                        tg.create_task(self._stream_heartbeats(stub))
 
-                    await stub.Register(
-                        RegisterRequest(
-                            service=ServiceDefinition(
-                                name=self._config.service.name,
-                                description=self._config.service.description,
-                                address=self._config.service.address,
-                            )
-                        ),
-                        timeout=10,
+            except* grpc.aio.AioRpcError as eg:
+                for e in eg.exceptions:
+                    e = cast(AioRpcError, e)
+                    logger.warning(
+                        "Manager unreachable, retrying in %ds: %s",
+                        self._config.manager.retry_interval_s,
+                        e.details(),
                     )
-                    logger.info("Registered with manager at %s", self._config.manager.address)
-
-                    self._heartbeat_queue = asyncio.Queue()
-                    responses = stub.Heartbeat(self._heartbeat_requests())
-
-                    async for _ in responses:
-                        logger.debug("Heartbeat ping received")
-                        self._heartbeat_queue.put_nowait(None)
-
-            except grpc.aio.AioRpcError as e:
-                retry_interval = self._config.manager.retry_interval_s
-
-                logger.warning(
-                    "Manager unreachable, retrying in %ds: %s", retry_interval, e.details()
-                )
-                await asyncio.sleep(retry_interval)
+                await asyncio.sleep(self._config.manager.retry_interval_s)
