@@ -9,6 +9,7 @@ from h2pcontrol.manager.v1.manager_pb2 import (
     Attr,
     AttrValue,
     Level,
+    LogEntry,
     LogRequest,
 )
 
@@ -105,11 +106,13 @@ class GrpcLogHandler(logging.Handler):
         try:
             self._queue.put_nowait(
                 LogRequest(
-                    service_name=self.service_name,
-                    level=proto_level,
-                    message=self.format(record),
-                    timestamp=ts,
-                    attrs=_get_extras(record),
+                    entry=LogEntry(
+                        service_name=self.service_name,
+                        level=proto_level,
+                        message=self.format(record),
+                        timestamp=ts,
+                        attrs=_get_extras(record),
+                    )
                 )
             )
         except queue.Full:
