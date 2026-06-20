@@ -1,8 +1,11 @@
 import logging
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Callable, TypeVar, cast
 
 import grpc
-from h2pcontrol.manager.v1.manager_pb2 import ListRequest
+from h2pcontrol.manager.v1.manager_pb2 import ListRequest, WatchRequest
 from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceStub
 
 if TYPE_CHECKING:
@@ -10,6 +13,16 @@ if TYPE_CHECKING:
 TStub = TypeVar("TStub")
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Service:
+    """A service registered with the manager."""
+
+    name: str
+    address: str
+    healthy: bool
+    last_seen: datetime
 
 
 class Client:
@@ -63,6 +76,24 @@ class Client:
             self._channels[name] = grpc.aio.insecure_channel(self._server_registry[name])
 
         return stub_class(self._channels[name])
+
+    async def watch(self) -> AsyncIterator[list[Service]]:
+        """Stream registry updates from the manager.
+
+        Yields a list of all registered services whenever the registry changes.
+        """
+        await self._ensure_connected()
+        response_stream = self._manager_stub.Watch(WatchRequest())
+        async for response in response_stream:
+            yield [
+                Service(
+                    name=svc.definition.name,
+                    address=svc.definition.address,
+                    healthy=svc.healthy,
+                    last_seen=svc.last_seen.ToDatetime(),
+                )
+                for svc in response.services
+            ]
 
     async def close(self):
         for ch in self._channels.values():
