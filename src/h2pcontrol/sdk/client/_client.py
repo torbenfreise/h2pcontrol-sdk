@@ -13,8 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class Client:
-    """H2PControl Manager Client implementation. This provides utilities
-    for connecting to Services registered with a manager"""
+    """
+    H2PControl Manager Client implementation. This provides utilities
+    for connecting to Services registered with a manager.
+    """
 
     def __init__(self, manager_address: str):
         self._manager_address = manager_address

@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 class Server(ABC):
+    """
+    Abstract Base Class to be mixed in by h2pcontrol services with the gRPC generated Servicer.
+    Handles gRPC server startup as well as registering and communicating with the manager.
+    Re-connects to the manager on failure, attempting to do every retry_interval_s as defined
+    in the config.
+    """
+
     def __init__(self, config: ServerConfig):
         self._config = config
         self._heartbeat_queue: asyncio.Queue[None] = asyncio.Queue()
@@ -42,6 +49,7 @@ class Server(ABC):
         ...
 
     async def _run(self):
+        """Start the gRPC service, listening on the configured port"""
         server = grpc.aio.server()
         self._add_to_server(server)
         server.add_insecure_port(f"[::]:{self._config.service.address.rsplit(':', 1)[1]}")
@@ -49,6 +57,10 @@ class Server(ABC):
         await server.wait_for_termination()
 
     def _add_to_server(self, server: grpc.aio.Server) -> None:
+        """
+        Inspect the MRO for the gRPC servicer class,
+        and add it to the server if found.
+        """
         for cls in inspect.getmro(type(self)):
             if cls.__name__.endswith("Servicer"):
                 module = inspect.getmodule(cls)
@@ -59,17 +71,28 @@ class Server(ABC):
         raise RuntimeError(f"No gRPC servicer found in MRO of {type(self).__name__}")
 
     async def _heartbeat_requests(self) -> AsyncIterator[HeartbeatRequest]:
+        """
+        Create HeartbeatRequest producer.
+        :return: Iterator producing a HeartbeatRequest per item placed in self._heartbeat_queue.
+        """
         while True:
             await self._heartbeat_queue.get()
             yield HeartbeatRequest(healthy=self._healthy())
 
     async def _stream_heartbeats(self, stub: "ManagerServiceAsyncStub") -> None:
+        """
+        Immediately send a HeartbeatRequest for every HeartbeatResponse received.
+        This allows the manager to dictate the heartbeat interval.
+        """
         self._heartbeat_queue = asyncio.Queue()
         async for _ in stub.Heartbeat(self._heartbeat_requests()):
             logger.debug("Heartbeat ping received")
             self._heartbeat_queue.put_nowait(None)
 
     async def _stream_logs(self, stub: "ManagerServiceAsyncStub") -> None:
+        """
+        Send service logs to the manager indefinitely.
+        """
         handler = GrpcLogHandler(self._config.service.name)
         logging.getLogger().addHandler(handler)
         try:
@@ -79,6 +102,10 @@ class Server(ABC):
             handler.close()
 
     async def _register(self, stub: "ManagerServiceAsyncStub") -> None:
+        """
+        Attempt to register the service with the manager at the
+        configured address.
+        """
         await stub.Register(
             RegisterRequest(
                 service=ServiceDefinition(
@@ -92,6 +119,11 @@ class Server(ABC):
         logger.info("Registered with manager at %s", self._config.manager.address)
 
     async def _connect_to_manager(self):
+        """
+        Register with the manager and open the log and heartbeat streams.
+        If registration or either stream fails, the service will attempt
+        re-connect every retry_interval_s.
+        """
         while True:
             try:
                 async with grpc.aio.insecure_channel(self._config.manager.address) as channel:

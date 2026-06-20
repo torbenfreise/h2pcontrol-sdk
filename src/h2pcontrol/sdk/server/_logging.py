@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 _MAX_QUEUE_SIZE = 4096
 
-# skip built-in LogRecord attributes
+# built-in LogRecord attributes skip list
 # http://docs.python.org/library/logging.html#logrecord-attributes
 _RESERVED_ATTRS = frozenset(
     (
@@ -62,10 +62,14 @@ def _to_attr_value(v: object) -> AttrValue:
 
 
 def _get_extras(record: logging.LogRecord) -> list[Attr]:
+    """
+    Get all user-defined extra attributes,
+    as "foo": "bar" in logger.info(" ... ", {"foo": "bar"})
+    """
     return [
         Attr(key=k, value=_to_attr_value(v))
         for k, v in record.__dict__.items()
-        if k not in _RESERVED_ATTRS
+        if k not in _RESERVED_ATTRS  # skip built-ins
     ]
 
 
@@ -85,10 +89,11 @@ class GrpcLogHandler(logging.Handler):
         self._queue: queue.Queue[LogRequest | None] = queue.Queue(maxsize=_MAX_QUEUE_SIZE)
 
     async def _generate(self):
+        """Dequeue log records and yield them asynchronously."""
         while True:
             record = await asyncio.to_thread(self._queue.get)
             if record is None:
-                return
+                return  # closes the stream
             yield record
 
     async def run(self, stub: "ManagerServiceAsyncStub") -> None:
@@ -98,6 +103,9 @@ class GrpcLogHandler(logging.Handler):
             self._closed = True
 
     def emit(self, record):
+        """
+        Convert a record into a LogRequest and put it in the thread-safe queue.
+        """
         if self._closed:
             return
         proto_level = self.LEVEL_MAP.get(record.levelno, Level.LEVEL_UNSPECIFIED)
@@ -116,7 +124,7 @@ class GrpcLogHandler(logging.Handler):
                 )
             )
         except queue.Full:
-            pass
+            pass  # drop logs rather than block
 
     def close(self):
         self._closed = True
