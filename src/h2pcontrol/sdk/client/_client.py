@@ -95,9 +95,16 @@ class Client:
                 for svc in response.services
             ]
 
-    async def stream_logs(self) -> AsyncIterator[LogEntry]:
+    async def stream_logs(self, follow: bool = True, tail: int = -1) -> AsyncIterator[LogEntry]:
+        """Stream service logs from the manager.
+
+        :param follow: whether to keep the stream open for new logs (default true)
+        :param tail: how many logs from the history to include, starting from most recent.
+            -1 for all (default).
+        """
         await self._ensure_connected()
-        response_stream = self._manager_stub.StreamLogs(StreamLogsRequest())
+        request = StreamLogsRequest(follow=follow, tail=tail)
+        response_stream = self._manager_stub.StreamLogs(request)
         async for response in response_stream:
             yield response.entry
 
