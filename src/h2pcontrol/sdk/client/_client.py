@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Callable, TypeVar, cast
 
 import grpc
-from h2pcontrol.manager.v1.manager_pb2 import ListRequest, WatchRequest
+from h2pcontrol.manager.v1.manager_pb2 import ListRequest, LogEntry, StreamLogsRequest, WatchRequest
 from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceStub
 
 if TYPE_CHECKING:
@@ -94,6 +94,19 @@ class Client:
                 )
                 for svc in response.services
             ]
+
+    async def stream_logs(self, follow: bool = True, tail: int = -1) -> AsyncIterator[LogEntry]:
+        """Stream service logs from the manager.
+
+        :param follow: whether to keep the stream open for new logs (default true)
+        :param tail: how many logs from the history to include, starting from most recent.
+            -1 for all (default).
+        """
+        await self._ensure_connected()
+        request = StreamLogsRequest(follow=follow, tail=tail)
+        response_stream = self._manager_stub.StreamLogs(request)
+        async for response in response_stream:
+            yield response.entry
 
     async def close(self):
         for ch in self._channels.values():
