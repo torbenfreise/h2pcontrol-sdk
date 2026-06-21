@@ -1,6 +1,6 @@
 [project]
 name = "h2pcontrol-sdk"
-version = "0.2.6"
+version = "0.2.7"
 requires-python = ">=3.12"
 dependencies = [
     "grpcio>=1.80.0",
