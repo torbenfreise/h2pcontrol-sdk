@@ -58,17 +58,19 @@ class Server(ABC):
 
     def _add_to_server(self, server: grpc.aio.Server) -> None:
         """
-        Inspect the MRO for the gRPC servicer class,
-        and add it to the server if found.
+        Inspect the MRO for all gRPC servicer classes,
+        and add each one to the server.
         """
+        registered: set[str] = set()
         for cls in inspect.getmro(type(self)):
-            if cls.__name__.endswith("Servicer"):
+            if cls.__name__.endswith("Servicer") and cls.__name__ not in registered:
                 module = inspect.getmodule(cls)
                 fn = getattr(module, f"add_{cls.__name__}_to_server", None)
                 if fn:
                     fn(self, server)
-                    return
-        raise RuntimeError(f"No gRPC servicer found in MRO of {type(self).__name__}")
+                    registered.add(cls.__name__)
+        if len(registered) == 0:
+            raise RuntimeError(f"No gRPC servicer found in MRO of {type(self).__name__}")
 
     async def _heartbeat_requests(self) -> AsyncIterator[HeartbeatRequest]:
         """
