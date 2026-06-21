@@ -56,6 +56,25 @@ The `H2PServer` class defines `start`, which attempts to start the server and co
 If the manager is unavailable, a warning log will be emitted and connection will be retried every `retry_interval_s`.
 
 
+#### GoNogoMixin
+Services that have a physical readiness condition e.g. hardware that is slow to calibrate can mix in `GoNogoMixin` to expose a `GetReady` gRPC endpoint. 
+Implement the `_go_nogo` async method to report whether the service is ready:
+
+```python
+from h2pcontrol.sdk.server import Server, GoNogoMixin
+from h2pcontrol.example.v1.example_pb2_grpc import MyServiceServicer
+
+class MyService(Server, GoNogoMixin, MyServiceServicer):
+    async def _go_nogo(self) -> tuple[bool, str]:
+        if not self.hardware_ready:
+            return False, "laser not ready"
+        return True, ""
+
+    # implement gRPC service methods here
+```
+
+The mixin registers itself as an additional gRPC service on the same server automatically.
+
 For a complete service implementation using this sdk, see the [h2pcontrol server template.](https://github.com/torbenfreise/h2pcontrol-server-template)
 
 
