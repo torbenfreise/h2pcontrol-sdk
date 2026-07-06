@@ -20,6 +20,7 @@ class Service:
     """A service registered with the manager."""
 
     name: str
+    description: str
     address: str
     healthy: bool
     last_seen: datetime
@@ -88,6 +89,7 @@ class Client:
             yield [
                 Service(
                     name=svc.definition.name,
+                    description=svc.definition.description,
                     address=svc.definition.address,
                     healthy=svc.healthy,
                     last_seen=svc.last_seen.ToDatetime(),
