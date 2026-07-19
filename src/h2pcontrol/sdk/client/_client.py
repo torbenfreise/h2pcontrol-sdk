@@ -34,11 +34,14 @@ class Client:
 
     def __init__(self, manager_address: str):
         self._manager_address = manager_address
-        self._manager_channel: grpc.aio.Channel
-        self._manager_stub: ManagerServiceAsyncStub
+        self._manager_channel: grpc.aio.Channel | None = None
+        self._manager_stub: ManagerServiceAsyncStub | None = None
         self._channels: dict[str, grpc.aio.Channel] = {}
         self._server_registry: dict[str, str] = {}  # name -> address
         self._connected = False
+
+    async def connect(self) -> None:
+        await self._ensure_connected()
 
     async def _ensure_connected(self):
         """Lazy connect to manager on first use."""
@@ -51,15 +54,24 @@ class Client:
         await self._refresh_registry()
         self._connected = True
 
+    def _require_stub(self) -> "ManagerServiceAsyncStub":
+        """Return the manager stub if connected, else throw"""
+        if self._manager_stub is None:
+            raise RuntimeError("Client is not connected to a manager")
+        return self._manager_stub
+
     async def _refresh_registry(self):
         """Fetch the current server list from manager."""
         try:
-            response = await self._manager_stub.List(ListRequest())
+            response = await self._require_stub().List(ListRequest())
             self._server_registry = {
                 service.definition.name: service.definition.address for service in response.services
             }
         except grpc.aio.AioRpcError as e:
-            await self._manager_channel.close()
+            if self._manager_channel is not None:
+                await self._manager_channel.close()
+            self._manager_channel = None
+            self._manager_stub = None
             self._connected = False
             logger.warning("No response received from manager: %s", e.details())
             raise
@@ -84,7 +96,7 @@ class Client:
         Yields a list of all registered services whenever the registry changes.
         """
         await self._ensure_connected()
-        response_stream = self._manager_stub.Watch(WatchRequest())
+        response_stream = self._require_stub().Watch(WatchRequest())
         async for response in response_stream:
             yield [
                 Service(
@@ -106,21 +118,23 @@ class Client:
         """
         await self._ensure_connected()
         request = StreamLogsRequest(follow=follow, tail=tail)
-        response_stream = self._manager_stub.StreamLogs(request)
+        response_stream = self._require_stub().StreamLogs(request)
         async for response in response_stream:
             yield response.entry
 
     async def close(self):
         for ch in self._channels.values():
             await ch.close()
-        if self._manager_channel:
+        if self._manager_channel is not None:
             await self._manager_channel.close()
+        self._manager_channel = None
+        self._manager_stub = None
         self._channels.clear()
         self._server_registry.clear()
         self._connected = False
 
     async def __aenter__(self):
-        await self._ensure_connected()
+        await self.connect()
         return self
 
     async def __aexit__(self, *exc):
