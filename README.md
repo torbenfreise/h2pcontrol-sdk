@@ -92,3 +92,7 @@ async with Client("127.0.0.1:50051") as client:
 ```
 
 `service()` raises `ServiceNotFoundError` if the requested service is not registered with the manager.
+
+## Relationship to prior work
+
+See [ATTRIBUTION.md](ATTRIBUTION.md).
