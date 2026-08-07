@@ -32,6 +32,7 @@ retry_interval_s = 5 # how often to attempt to (re)connect to the manager
 name = "greeter" # A unique name for this service
 description = "Greeter service" # a short description of the service and its purpose
 address = "0.0.0.0:50055" # the address this service listens on and reports to the manager
+reflection = true # optional, defaults to true; see Server reflection below
 ```
 The corresponding environment variables are defined as `<section>__<key>` and should be in all caps.
 For example, defining `MANAGER__ADDRESS` overrides the manager address.
@@ -74,6 +75,17 @@ class MyService(Server, GoNogoMixin, MyServiceServicer):
 ```
 
 The mixin registers itself as an additional gRPC service on the same server automatically.
+
+#### Server reflection
+Every server enables the standard [gRPC server reflection](https://grpc.io/docs/guides/reflection/)
+service, so tools can list methods and build requests against a running service without any local
+copy of the schema. [grpcui](https://github.com/fullstorydev/grpcui) provides a graphical
+interface for servers:
+
+```bash
+brew install grpcui
+grpcui -plaintext localhost:50055
+```
 
 For a complete service implementation using this sdk, see the [h2pcontrol server template.](https://github.com/torbenfreise/h2pcontrol-server-template)
 

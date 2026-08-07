@@ -3,7 +3,10 @@ revision = 3
 requires-python = ">=3.12"
 
 [manifest]
-overrides = [{ name = "protobuf", specifier = ">=7.34.1" }]
+overrides = [
+    { name = "beyer-labs-h2pcontrol-protocolbuffers-pyi", marker = "sys_platform == 'no-such-platform'" },
+    { name = "protobuf", specifier = ">=7.34.1" },
+]
 
 [[package]]
 name = "annotated-types"
@@ -70,7 +73,7 @@ name = "beyer-labs-h2pcontrol-protocolbuffers-python"
 version = "35.1.0.1.20260621121040+c0ced3c96356"
 source = { registry = "https://buf.build/gen/python" }
 dependencies = [
-    { name = "beyer-labs-h2pcontrol-protocolbuffers-pyi" },
+    { name = "beyer-labs-h2pcontrol-protocolbuffers-pyi", marker = "sys_platform == 'no-such-platform'" },
     { name = "protobuf" },
 ]
 wheels = [
@@ -116,6 +119,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/da/df/c6717fef716e00d235ffb96123baf6dce76d6004f6233fa767c502861460/grpcio-1.81.1-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:b427c19380991a4eaab2f6144b64b99b412043314c6bf4ab544f97bb31ee4190", size = 7846681, upload-time = "2026-06-11T12:46:43.013Z" },
     { url = "https://files.pythonhosted.org/packages/36/84/3502e9f210a6a5c4438c8aca3f88edd2e04f6a27f3d41b26cf0a0024b096/grpcio-1.81.1-cp314-cp314-win32.whl", hash = "sha256:61233fe8951e5c85dff81c2458b6528624760166946b5b47ea150a589168411f", size = 4264615, upload-time = "2026-06-11T12:46:45.741Z" },
     { url = "https://files.pythonhosted.org/packages/ff/b0/4af731ff7492c68a96e4c71bfd0f4590acde92b31c6fe4894e6465c10ff6/grpcio-1.81.1-cp314-cp314-win_amd64.whl", hash = "sha256:3768a5ff1b2125e6f552e561b6b2dca0e64982d8949689b4df145cf8b98d7821", size = 5070275, upload-time = "2026-06-11T12:46:48.486Z" },
+]
+
+[[package]]
+name = "grpcio-reflection"
+version = "1.81.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "grpcio" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c0/53/7bd579cb35ea5895cb1ef38066e2336324432b3d3eaa21f52f6b94457c2d/grpcio_reflection-1.81.1.tar.gz", hash = "sha256:3d7160000f5fdd0e241f9b1a3d402f15ebcd5f281be105b374a025f38c6434a8", size = 19203, upload-time = "2026-06-11T12:58:47.865Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/10/5152fbc98f6b5b4f54cdf97c585d19fe962c265774692e446ad6b4f4950c/grpcio_reflection-1.81.1-py3-none-any.whl", hash = "sha256:d82fc4ac39dd5dcfd63e577075f6a68eac4a765e66a453914bbf57caf35665d0", size = 22906, upload-time = "2026-06-11T12:58:03.183Z" },
 ]
 
 [[package]]
@@ -169,9 +185,10 @@ dependencies = [
     { name = "beyer-labs-h2pcontrol-community-nipunn1313-mypy" },
     { name = "beyer-labs-h2pcontrol-community-nipunn1313-mypy-grpc" },
     { name = "beyer-labs-h2pcontrol-grpc-python" },
-    { name = "beyer-labs-h2pcontrol-protocolbuffers-pyi" },
+    { name = "beyer-labs-h2pcontrol-protocolbuffers-pyi", marker = "sys_platform == 'no-such-platform'" },
     { name = "beyer-labs-h2pcontrol-protocolbuffers-python" },
     { name = "grpcio" },
+    { name = "grpcio-reflection" },
     { name = "protobuf" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -191,6 +208,7 @@ requires-dist = [
     { name = "beyer-labs-h2pcontrol-protocolbuffers-pyi", specifier = ">=34.dev0,<36" },
     { name = "beyer-labs-h2pcontrol-protocolbuffers-python", specifier = ">=34.dev0,<36" },
     { name = "grpcio", specifier = ">=1.80.0" },
+    { name = "grpcio-reflection", specifier = ">=1.81.1" },
     { name = "protobuf", specifier = ">=7.34.1" },
     { name = "pydantic", specifier = ">=2.13.1" },
     { name = "pydantic-settings", specifier = ">=2.11.0" },
