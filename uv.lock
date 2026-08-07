@@ -16,14 +16,14 @@ wheels = [
 
 [[package]]
 name = "beyer-labs-h2pcontrol-community-nipunn1313-mypy"
-version = "5.1.0.1.20260621121040+c0ced3c96356"
+version = "5.1.0.1.20260806142239+6ff52c17a9f7"
 source = { registry = "https://buf.build/gen/python" }
 dependencies = [
     { name = "protobuf" },
     { name = "types-protobuf" },
 ]
 wheels = [
-    { url = "https://buf.build/gen/python/beyer-labs-h2pcontrol-community-nipunn1313-mypy/beyer_labs_h2pcontrol_community_nipunn1313_mypy-5.1.0.1.20260621121040+c0ced3c96356-py3-none-any.whl", upload-time = "2026-06-21T12:10:40Z" },
+    { url = "https://buf.build/gen/python/beyer-labs-h2pcontrol-community-nipunn1313-mypy/beyer_labs_h2pcontrol_community_nipunn1313_mypy-5.1.0.1.20260806142239+6ff52c17a9f7-py3-none-any.whl", upload-time = "2026-08-06T14:22:39Z" },
 ]
 
 [[package]]
