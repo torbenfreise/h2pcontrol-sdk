@@ -47,6 +47,7 @@ class ServiceConfig(BaseModel):
     name: str
     description: str
     address: str
+    reflection: bool = True
 
     @field_validator("address")
     @classmethod

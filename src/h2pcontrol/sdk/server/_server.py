@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import grpc
 from grpc.aio import AioRpcError
+from grpc_reflection.v1alpha import reflection
 from h2pcontrol.manager.v1.manager_pb2 import (
     HeartbeatRequest,
     RegisterRequest,
@@ -14,6 +15,7 @@ from h2pcontrol.manager.v1.manager_pb2 import (
 )
 
 from h2pcontrol.sdk.server._logging import GrpcLogHandler
+from h2pcontrol.sdk.server._reflection import ServiceNameRecorder
 
 if TYPE_CHECKING:
     from h2pcontrol.manager.v1.manager_pb2_grpc import ManagerServiceAsyncStub
@@ -51,26 +53,32 @@ class Server(ABC):
     async def _run(self):
         """Start the gRPC service, listening on the configured port"""
         server = grpc.aio.server()
-        self._add_to_server(server)
+        service_names = self._add_to_server(server)
+        if self._config.service.reflection:
+            reflection.enable_server_reflection([*service_names, reflection.SERVICE_NAME], server)
+            logger.info("Server reflection enabled for %s", ", ".join(service_names))
         server.add_insecure_port(f"[::]:{self._config.service.address.rsplit(':', 1)[1]}")
         await server.start()
         await server.wait_for_termination()
 
-    def _add_to_server(self, server: grpc.aio.Server) -> None:
+    def _add_to_server(self, server: grpc.aio.Server) -> list[str]:
         """
         Inspect the MRO for all gRPC servicer classes,
         and add each one to the server.
+        :return: The fully-qualified names of the services that were added.
         """
+        recorder = ServiceNameRecorder(server)
         registered: set[str] = set()
         for cls in inspect.getmro(type(self)):
             if cls.__name__.endswith("Servicer") and cls.__name__ not in registered:
                 module = inspect.getmodule(cls)
                 fn = getattr(module, f"add_{cls.__name__}_to_server", None)
                 if fn:
-                    fn(self, server)
+                    fn(self, recorder)
                     registered.add(cls.__name__)
         if len(registered) == 0:
             raise RuntimeError(f"No gRPC servicer found in MRO of {type(self).__name__}")
+        return recorder.service_names
 
     async def _heartbeat_requests(self) -> AsyncIterator[HeartbeatRequest]:
         """
